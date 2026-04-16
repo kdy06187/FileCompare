@@ -3,6 +3,7 @@ using static System.ComponentModel.Design.ObjectSelectorEditor;
 
 namespace FileCompare
 {
+    // 파일 비교 상태를 나타내는 열거형
     public enum FileCompareStatus
     {
         None,
@@ -11,6 +12,7 @@ namespace FileCompare
         Old,       // 과거
         Unique     // 단독
     }
+    // 파일 및 폴더 비교 상태를 저장하는 클래스
 
     public class FileItemData
     {
@@ -154,19 +156,22 @@ namespace FileCompare
                 var rightItems = lvwrightDir.Items.Cast<ListViewItem>()
                     .Where(i => i.Tag is FileItemData)
                     .ToDictionary(i => i.Text);
-
+                
                 foreach (var left in leftItems)
                 {
+                    // 왼쪽 항목의 이름과 데이터 추출
                     var leftName = left.Key;
                     var leftItem = left.Value;
                     var leftData = (FileItemData)leftItem.Tag;
-
+                    // 오른쪽에서 동일한 이름의 항목이 있는지 확인
                     if (rightItems.TryGetValue(leftName, out var rightItem))
                     {
+                        // 오른쪽 항목의 데이터 추출
                         var rightData = (FileItemData)rightItem.Tag;
-
+                        // 수정 시간이 일치하는지 확인
                         if (leftData.LastWriteTime == rightData.LastWriteTime)
                         {
+                            // 수정 시간이 동일하면 동일한 파일/폴더로 간주
                             leftData.Status = FileCompareStatus.Identical;
                             rightData.Status = FileCompareStatus.Identical;
                             leftItem.ForeColor = System.Drawing.Color.Black;
@@ -174,6 +179,7 @@ namespace FileCompare
                         }
                         else if (leftData.LastWriteTime > rightData.LastWriteTime)
                         {
+                            // 왼쪽 항목이 오른쪽 항목보다 최신인 경우
                             leftData.Status = FileCompareStatus.New;
                             rightData.Status = FileCompareStatus.Old;
                             leftItem.ForeColor = System.Drawing.Color.Red;
@@ -181,21 +187,23 @@ namespace FileCompare
                         }
                         else
                         {
+                            // 오른쪽 항목이 왼쪽 항목보다 최신인 경우
                             leftData.Status = FileCompareStatus.Old;
                             rightData.Status = FileCompareStatus.New;
                             leftItem.ForeColor = System.Drawing.Color.Gray;
                             rightItem.ForeColor = System.Drawing.Color.Red;
                         }
-
+                        // 비교가 완료된 항목은 오른쪽 딕셔너리에서 제거하여 나중에 단독 항목을 식별할 때 사용
                         rightItems.Remove(leftName);
                     }
                     else
                     {
+                        // 오른쪽에 동일한 이름의 항목이 없는 경우, 왼쪽 항목은 단독으로 간주
                         leftData.Status = FileCompareStatus.Unique;
                         leftItem.ForeColor = System.Drawing.Color.Purple;
                     }
                 }
-
+                // 오른쪽 딕셔너리에 남아있는 항목들은 왼쪽에 동일한 이름이 없는 단독 항목이므로 상태 업데이트
                 foreach (var right in rightItems.Values)
                 {
                     var rightData = (FileItemData)right.Tag;
@@ -239,15 +247,16 @@ namespace FileCompare
         private void btnCopyFromLeft_Click(object sender, EventArgs e)
         {
             if (string.IsNullOrWhiteSpace(txtLeftDir.Text) || string.IsNullOrWhiteSpace(txtRightDir.Text)) return;
-
+            // 선택된 항목들에 대해 복사 시도
             bool copiedAny = false;
             foreach (ListViewItem item in lvwrightDir.SelectedItems)
             {
+                // FileItemData 태그가 없는 항목은 무시
                 if (!(item.Tag is FileItemData itemData)) continue;
-
+                // 원본과 대상 경로 구성
                 var srcPath = Path.Combine(txtRightDir.Text, item.Text);
                 var destPath = Path.Combine(txtLeftDir.Text, item.Text);
-
+                // 복사 시도 및 결과에 따라 copiedAny 플래그 설정
                 if (CopyItemWithConfirmation(srcPath, destPath, itemData.IsDirectory))
                 {
                     copiedAny = true;
@@ -264,17 +273,19 @@ namespace FileCompare
 
         private bool CopyItemWithConfirmation(string srcPath, string destPath, bool isDirectory)
         {
-            if (isDirectory)
+            // 디렉터리 복사
+            if (isDirectory) //
             {
                 try
                 {
+                    
                     if (!Directory.Exists(srcPath)) return false;
-
                     if (!Directory.Exists(destPath))
                     {
+                        // 대상 폴더가 존재하지 않으면 새로 생성
                         Directory.CreateDirectory(destPath);
                     }
-
+                    // 대상 폴더가 이미 존재하는 경우, 원본과 대상의 수정 시간을 비교하여 덮어쓰기 여부 확인
                     bool anyCopied = false;
 
                     // 하위 파일 재귀 복사
@@ -283,6 +294,7 @@ namespace FileCompare
                         string destFile = Path.Combine(destPath, Path.GetFileName(file));
                         if (CopyItemWithConfirmation(file, destFile, false))
                         {
+                            // 하나라도 복사된 파일이 있으면 anyCopied를 true로 설정
                             anyCopied = true;
                         }
                     }
@@ -312,8 +324,10 @@ namespace FileCompare
             {
                 try
                 {
+                    // 파일 복사
+                    // 원본 파일이 존재하지 않으면 복사할 수 없음
                     if (!File.Exists(srcPath)) return false;
-
+                    // 대상 파일이 이미 존재하는 경우, 원본과 대상의 수정 시간을 비교하여 덮어쓰기 여부 확인
                     if (File.Exists(destPath))
                     {
                         DateTime srcTime = File.GetLastWriteTime(srcPath);
