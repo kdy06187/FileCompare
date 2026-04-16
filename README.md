@@ -14,9 +14,13 @@
 - 사용한 기술과 구현한 기능 :
   - **Windows Forms 앱 (C#)**: `Visual Studio`의 디자이너를 활용하여 직관적인 키오스크 UI(RadioButton, CheckBox) 
   - **레이아웃 속성 활용**: ```Padding```, ```Dock```,```Anchor```를 활용해서 컨트롤 배치 및 자동 조정
+  - **ListView 활용** : ```ListView``` 컨트롤을 활용해서 파일 리스트를 표 형태로 표시
   - **Panel 활용** :  ```Panel``` 컨트롤을 활용하여 다른 컨트롤들을 하나로 묶어서 관리
   - **폴더 선택** : ```FolderBrowserDialog```을 활용해서 컴퓨터의 디렉터리 접근
-  - **파일 비교** : ```System.IO.File```과 ```System.IO.Directory``` 클래스를 활용해서 파일과 폴더 비교
+  - **파일 비교** : ```FileInfo``` 클래스의 ```LastWriteTime``` 속성을 활용해서 파일의 마지막 수정 시간 비교
+  - **파일 상태 관리** : ```enum```과 사용자 정의 클래스 ```FileItemData```를 활용해서 파일 상태 관리
+  - **ListViewItem 태그 활용** : ```ListViewItem```의 ```Tag``` 속성을 활용해서 각 파일 아이템에 ```FileItemData``` 객체 연결
+  - **디렉터리 클래스 활용** : ```Directory``` 클래스를 활용하여 폴더의 모든 파일과 하위폴더 불러오기
   
  
 - 화면 구성 : 
