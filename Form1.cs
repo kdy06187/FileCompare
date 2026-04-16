@@ -16,6 +16,7 @@ namespace FileCompare
     {
         public DateTime LastWriteTime { get; set; }
         public FileCompareStatus Status { get; set; }
+        public bool IsDirectory { get; set; }
     }
 
     public partial class Form1 : Form
@@ -82,6 +83,14 @@ namespace FileCompare
                     var item = new ListViewItem(d.Name);
                     item.SubItems.Add("<DIR>");
                     item.SubItems.Add(d.LastWriteTime.ToString("g"));
+
+                    // 폴더 비교 데이터 태그 저장
+                    item.Tag = new FileItemData 
+                    { 
+                        LastWriteTime = d.LastWriteTime, 
+                        Status = FileCompareStatus.None,
+                        IsDirectory = true
+                    };
                     lv.Items.Add(item);
                 }
                 // 파일추가
@@ -98,7 +107,8 @@ namespace FileCompare
                     item.Tag = new FileItemData 
                     { 
                         LastWriteTime = f.LastWriteTime, 
-                        Status = FileCompareStatus.None 
+                        Status = FileCompareStatus.None,
+                        IsDirectory = false
                     };
                     lv.Items.Add(item);
                 }
@@ -136,7 +146,7 @@ namespace FileCompare
 
             try
             {
-                // 디렉터리를 제외하고 FileItemData(파일) 태그를 가진 항목만 추출
+                // FileItemData 태그를 가진 항목(파일 및 폴더 모두) 추출
                 var leftItems = lvwLeftDir.Items.Cast<ListViewItem>()
                     .Where(i => i.Tag is FileItemData)
                     .ToDictionary(i => i.Text);
@@ -200,7 +210,144 @@ namespace FileCompare
             }
         }
 
-        
+        private void btnCopyFromRight_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(txtLeftDir.Text) || string.IsNullOrWhiteSpace(txtRightDir.Text)) return;
+
+            bool copiedAny = false;
+            foreach (ListViewItem item in lvwLeftDir.SelectedItems)
+            {
+                if (!(item.Tag is FileItemData itemData)) continue;
+
+                var srcPath = Path.Combine(txtLeftDir.Text, item.Text);
+                var destPath = Path.Combine(txtRightDir.Text, item.Text);
+
+                if (CopyItemWithConfirmation(srcPath, destPath, itemData.IsDirectory))
+                {
+                    copiedAny = true;
+                }
+            }
+
+            if (copiedAny)
+            {
+                // 복사 완료 후 새 항목 로드 및 재비교
+                PopulateListView(lvwrightDir, txtRightDir.Text);
+                CompareFiles();
+            }
+        }
+
+        private void btnCopyFromLeft_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(txtLeftDir.Text) || string.IsNullOrWhiteSpace(txtRightDir.Text)) return;
+
+            bool copiedAny = false;
+            foreach (ListViewItem item in lvwrightDir.SelectedItems)
+            {
+                if (!(item.Tag is FileItemData itemData)) continue;
+
+                var srcPath = Path.Combine(txtRightDir.Text, item.Text);
+                var destPath = Path.Combine(txtLeftDir.Text, item.Text);
+
+                if (CopyItemWithConfirmation(srcPath, destPath, itemData.IsDirectory))
+                {
+                    copiedAny = true;
+                }
+            }
+
+            if (copiedAny)
+            {
+                // 복사 완료 후 새 항목 로드 및 재비교
+                PopulateListView(lvwLeftDir, txtLeftDir.Text);
+                CompareFiles();
+            }
+        }
+
+        private bool CopyItemWithConfirmation(string srcPath, string destPath, bool isDirectory)
+        {
+            if (isDirectory)
+            {
+                try
+                {
+                    if (!Directory.Exists(srcPath)) return false;
+
+                    if (!Directory.Exists(destPath))
+                    {
+                        Directory.CreateDirectory(destPath);
+                    }
+
+                    bool anyCopied = false;
+
+                    // 하위 파일 재귀 복사
+                    foreach (string file in Directory.GetFiles(srcPath))
+                    {
+                        string destFile = Path.Combine(destPath, Path.GetFileName(file));
+                        if (CopyItemWithConfirmation(file, destFile, false))
+                        {
+                            anyCopied = true;
+                        }
+                    }
+
+                    // 하위 폴더 재귀 복사
+                    foreach (string folder in Directory.GetDirectories(srcPath))
+                    {
+                        string destFolder = Path.Combine(destPath, Path.GetFileName(folder));
+                        if (CopyItemWithConfirmation(folder, destFolder, true))
+                        {
+                            anyCopied = true;
+                        }
+                    }
+
+                    // 폴더 복사 완료 후, 대상 폴더의 수정 시간을 원본과 동일하게 맞춤(비교시 정확도 보장)
+                    Directory.SetLastWriteTime(destPath, Directory.GetLastWriteTime(srcPath));
+
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "폴더 복사 중 오류: " + ex.Message, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+            }
+            else
+            {
+                try
+                {
+                    if (!File.Exists(srcPath)) return false;
+
+                    if (File.Exists(destPath))
+                    {
+                        DateTime srcTime = File.GetLastWriteTime(srcPath);
+                        DateTime destTime = File.GetLastWriteTime(destPath);
+
+                        // 덮어쓸 파일(destPath)이 원본 파일(srcPath)보다 최신인 경우
+                        if (destTime > srcTime)
+                        {
+                            var result = MessageBox.Show(this,
+                                $"대상에 동일한 이름의 파일이 이미 있습니다. \n\n대상 파일이 더 최신 파일입니다. 덮어쓰시겠습니까?" +
+                                $"[원본 파일]\n경로: {srcPath}\n수정일: {srcTime:yyyy-MM-dd HH:mm:ss}\n\n" +
+                                $"[대상 파일]\n경로: {destPath}\n수정일: {destTime:yyyy-MM-dd HH:mm:ss}\n\n" +
+                                $"오래된 파일로 덮어쓰시겠습니까?",
+                                "덮어쓰기 확인",
+                                MessageBoxButtons.YesNo,
+                                MessageBoxIcon.Warning);
+
+                            if (result != DialogResult.Yes)
+                            {
+                                return false; // 복사 취소
+                            }
+                        }
+                    }
+
+                    File.Copy(srcPath, destPath, true);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "파일 복사 중 오류: " + ex.Message, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return false;
+                }
+            }
+        }
 
     }
 }
