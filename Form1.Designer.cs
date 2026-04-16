@@ -131,6 +131,7 @@
             btnCopyFromRight.TabIndex = 4;
             btnCopyFromRight.Text = ">>>";
             btnCopyFromRight.UseVisualStyleBackColor = true;
+            
             // 
             // btnCopyFromLeft
             // 
@@ -141,6 +142,7 @@
             btnCopyFromLeft.TabIndex = 4;
             btnCopyFromLeft.Text = "<<<";
             btnCopyFromLeft.UseVisualStyleBackColor = true;
+            
             // 
             // lvwrightDir
             // 
